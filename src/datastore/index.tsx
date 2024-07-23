@@ -38,10 +38,12 @@ export type UpdateDataRow = Omit<DataRow, "id">;
 */
 
 export class DataApi {
+  // NOTE: Ensure that the result of `newSubs - cancellations` doesn't go below 0
+  // NOTE: Ensure that 'September' is abbreviated to 'Sept'
   data: DataRow[] = [
     {
       id: "ccc3f8c6-cd6a-43ad-8af1-0aae0ce34622",
-      productName: "Quarterly Data Product - Q1/2024",
+      productName: "Stub Historic Product - Q1/2024",
       subscriptionMetrics: [
         {
           monthYear: "Jan 2024",
@@ -55,14 +57,25 @@ export class DataApi {
         },
         {
           monthYear: "Mar 2024",
-          newSubs: 10,
+          newSubs: 310,
           cancellations: 300,
         },
       ],
     },
     {
+      id: "ccc3f8c6-cd6a-43ad-8af1-0aae0ce34622",
+      productName: "Stub Single Month Product for month of Jan 2024",
+      subscriptionMetrics: [
+        {
+          monthYear: "Jan 2024",
+          newSubs: 200,
+          cancellations: 20,
+        },
+      ],
+    },
+    {
       id: "3c38b430-d0bb-49bf-892b-167dca396a0d",
-      productName: "Full Year Data Product - 2024",
+      productName: "Stub Live Product - 2024",
       subscriptionMetrics: [
         {
           monthYear: "Jan 2024",
@@ -86,7 +99,7 @@ export class DataApi {
         },
         {
           monthYear: "May 2024",
-          newSubs: 230,
+          newSubs: 330,
           cancellations: 300,
         },
         {
@@ -105,7 +118,7 @@ export class DataApi {
           cancellations: 0,
         },
         {
-          monthYear: "Sep 2024",
+          monthYear: "Sept 2024",
           newSubs: 0,
           cancellations: 0,
         },
@@ -123,6 +136,132 @@ export class DataApi {
           monthYear: "Dec 2024",
           newSubs: 0,
           cancellations: 0,
+        },
+      ],
+    },
+    {
+      id: "3c38b430-d0bb-49bf-892b-167dca396a0d",
+      productName: "Stub Multi-Year Product - 2022-2023",
+      subscriptionMetrics: [
+        {
+          monthYear: "Jan 2022",
+          newSubs: 200,
+          cancellations: 30,
+        },
+        {
+          monthYear: "Feb 2022",
+          newSubs: 100,
+          cancellations: 15,
+        },
+        {
+          monthYear: "Mar 2022",
+          newSubs: 400,
+          cancellations: 30,
+        },
+        {
+          monthYear: "Apr 2022",
+          newSubs: 450,
+          cancellations: 200,
+        },
+        {
+          monthYear: "May 2022",
+          newSubs: 1200,
+          cancellations: 130,
+        },
+        {
+          monthYear: "Jun 2022",
+          newSubs: 2100,
+          cancellations: 320,
+        },
+        {
+          monthYear: "Jul 2022",
+          newSubs: 2000,
+          cancellations: 1500,
+        },
+        {
+          monthYear: "Aug 2022",
+          newSubs: 1100,
+          cancellations: 986,
+        },
+        {
+          monthYear: "Sept 2022",
+          newSubs: 1243,
+          cancellations: 1122,
+        },
+        {
+          monthYear: "Oct 2022",
+          newSubs: 788,
+          cancellations: 162,
+        },
+        {
+          monthYear: "Nov 2022",
+          newSubs: 314,
+          cancellations: 12,
+        },
+        {
+          monthYear: "Dec 2022",
+          newSubs: 1244,
+          cancellations: 413,
+        },
+        {
+          monthYear: "Jan 2023",
+          newSubs: 967,
+          cancellations: 586,
+        },
+        {
+          monthYear: "Feb 2023",
+          newSubs: 865,
+          cancellations: 812,
+        },
+        {
+          monthYear: "Mar 2023",
+          newSubs: 232,
+          cancellations: 123,
+        },
+        {
+          monthYear: "Apr 2023",
+          newSubs: 976,
+          cancellations: 856,
+        },
+        {
+          monthYear: "May 2023",
+          newSubs: 413,
+          cancellations: 64,
+        },
+        {
+          monthYear: "Jun 2023",
+          newSubs: 1244,
+          cancellations: 1124,
+        },
+        {
+          monthYear: "Jul 2023",
+          newSubs: 1423,
+          cancellations: 245,
+        },
+        {
+          monthYear: "Aug 2023",
+          newSubs: 2532,
+          cancellations: 412,
+        },
+        {
+          monthYear: "Sept 2023",
+          newSubs: 1242,
+          cancellations: 1200,
+        },
+        {
+          monthYear: "Oct 2023",
+          newSubs: 1441,
+          cancellations: 142,
+        },
+        {
+          monthYear: "Nov 2023",
+          newSubs: 2453,
+          cancellations: 2144,
+        },
+        {
+          monthYear: "Dec 2023",
+          newSubs: 1435,
+          cancellations: 1224,
         },
       ],
     },
