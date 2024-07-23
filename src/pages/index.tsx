@@ -1,14 +1,6 @@
 import { CreateDataRow, DataRow } from "@/datastore";
-import { Alert, Button, Card, Label, TextInput } from "flowbite-react";
-import {
-  ErrorMessage,
-  Field,
-  FieldArray,
-  Form,
-  Formik,
-  FormikHelpers,
-  getIn,
-} from "formik";
+import { Alert, Button, Card, HR, Label, TextInput } from "flowbite-react";
+import { ErrorMessage, Field, FieldArray, Form, Formik, FormikHelpers, getIn } from "formik";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import {
   TbSend,
@@ -18,24 +10,21 @@ import {
   TbX,
   TbTrash,
   TbZoom,
-  TbThumbUp,
   TbCircleXFilled,
+  TbChartDots,
   TbChartBar,
-  TbChartBarOff,
+  TbCellSignal1,
+  TbCellSignalOff,
+  TbArtboard,
+  TbArtboardOff,
+  TbBrush,
+  TbBrushOff,
 } from "react-icons/tb";
-import {
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Legend,
-  Bar,
-  Tooltip,
-  ResponsiveContainer,
-  Line,
-  ComposedChart,
-} from "recharts";
+import { CartesianGrid, XAxis, YAxis, Bar, Tooltip, ResponsiveContainer, Line, ComposedChart, Brush } from "recharts";
 import useSWR from "swr";
 import * as Yup from "yup";
+
+// TODO: Fix all explicit `any`s
 
 function AnalyticsItem({
   data,
@@ -46,6 +35,8 @@ function AnalyticsItem({
 }) {
   const { mutate } = useSWR("/api/items");
 
+  // HMM: Below may be due to architecture and not be representative of final implementation given we pull the data from Stripe
+  // BUG: For some reason, deleting non-stubbed created products sometimes deletes multiple non-stubbed created products
   const handleDelete = async () => {
     await fetch(`/api/items/${data.id}`, {
       method: "DELETE",
@@ -63,14 +54,14 @@ function AnalyticsItem({
       onClick={() => {
         setSelectedProduct(data);
       }}
-      className="first:ml-0 ml-4 my-2"
+      className="ml-4 my-2"
     >
       <Card className="hover:-translate-y-2 hover:bg-white transition-all">
         <div className="text-center">
           <strong>{data.productName}</strong>
         </div>
 
-        <div className="flex">
+        <div className="flex flex-row justify-center">
           <Button
             color="light"
             onClick={() => {
@@ -91,15 +82,243 @@ function AnalyticsItem({
   );
 }
 
+function ChartItem({ selectedProduct }: { selectedProduct: DataRow | null }) {
+  if (!selectedProduct) return null;
+
+  const [showBarChart, setShowBarChart] = useState(true);
+  const [showTrendLine, setShowTrendLine] = useState(false);
+  const [showTrendExclusively, setShowTrendExclusively] = useState(false);
+  const [showTimelineBrush, setShowTimelineBrush] = useState(false);
+
+  return (
+    <div className="w-full flex mt-4">
+      <div className="flex flex-col">
+        <Button
+          onClick={() => {
+            setShowBarChart((prevState) => !prevState);
+          }}
+          color="light"
+          className="h-fit w-[175px]"
+          disabled={showTrendExclusively ? true : false}
+        >
+          Toggle {showBarChart ? "Line" : "Bar"} Chart
+          {showBarChart ? <TbChartDots size={20} className="ml-2" /> : <TbChartBar size={20} className="ml-2" />}
+        </Button>
+        <Button
+          onClick={() => {
+            setShowTrendLine((prevState) => !prevState);
+          }}
+          color="light"
+          className="h-fit w-[175px] mt-4"
+          disabled={showTrendExclusively ? true : false}
+        >
+          {showTrendLine ? "Hide" : "Show"} Trendline
+          {showTrendLine ? (
+            <TbCellSignalOff size={20} className="ml-2" />
+          ) : (
+            <TbCellSignal1 size={20} className="ml-2" />
+          )}
+        </Button>
+        <Button
+          onClick={() => {
+            setShowTrendExclusively((prevState) => !prevState);
+          }}
+          color="light"
+          className="h-fit w-[175px] mt-4"
+          disabled={!showTrendLine ? true : false}
+        >
+          {showTrendExclusively ? "Go back to full view" : "Focus on Trendline"}
+          {showTrendExclusively ? (
+            <TbArtboard size={20} className="ml-2" />
+          ) : (
+            <TbArtboardOff size={20} className="ml-2" />
+          )}
+        </Button>
+        <Button
+          onClick={() => {
+            setShowTimelineBrush((prevState) => !prevState);
+          }}
+          color="light"
+          className="h-fit w-[175px] mt-4"
+        >
+          {showTimelineBrush ? "Hide" : "Show"} Timeline
+          {showTimelineBrush ? <TbBrushOff size={20} className="ml-2" /> : <TbBrush size={20} className="ml-2" />}
+        </Button>
+      </div>
+      <div className="w-full ml-6 border border-gray-200 rounded-lg p-4">
+        <ResponsiveContainer width="100%" height={300}>
+          <ComposedChart
+            barCategoryGap={10}
+            barGap={3}
+            data={selectedProduct.subscriptionMetrics}
+            margin={{
+              top: 20,
+              right: 20,
+              bottom: 5,
+            }}
+          >
+            <CartesianGrid strokeDasharray="1 2" />
+            <XAxis dataKey="monthYear" dy={5} height={50} />
+            <YAxis />
+            <Tooltip
+              cursor={{
+                fill: "#eeeeee",
+                stroke: "lightgray",
+                opacity: "0.5",
+              }}
+              formatter={(value) => value && value.toLocaleString()}
+              labelClassName="font-bold"
+            />
+            {showTimelineBrush ? (
+              // HMM: The Recharts Brush component has responsive and styling issues, but works well - We may want to do a custom job later...
+              <Brush dataKey="monthYear" alwaysShowText x={100} width={1020} stroke="#2962FF" />
+            ) : null}
+            {showBarChart ? (
+              <>
+                {!showTrendExclusively ? (
+                  <>
+                    <Bar
+                      dataKey="newSubs"
+                      name="New Subscriptions"
+                      // teal-500
+                      // HMM: Is there a way we can hack in Tailwind here instead of just hex..?
+                      fill="#009688"
+                    />
+                    <Bar
+                      dataKey="cancellations"
+                      name="Cancellations"
+                      // red-800
+                      fill="#c62828"
+                    />
+                  </>
+                ) : null}
+                {showTrendLine ? (
+                  <Line
+                    name="Total Active Subscriptions"
+                    // purple-800
+                    stroke="#6a1b9a"
+                    strokeWidth={2}
+                    strokeDasharray="2 2"
+                    dot={false}
+                    dataKey={(entry) => entry.newSubs - entry.cancellations}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <>
+                {!showTrendExclusively ? (
+                  <>
+                    <Line
+                      name="New Subscriptions"
+                      dataKey="newSubs"
+                      // teal-500
+                      stroke="#009688"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      name="Cancellations"
+                      dataKey="cancellations"
+                      // red-800
+                      stroke="#c62828"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </>
+                ) : null}
+                {showTrendLine ? (
+                  <Line
+                    name="Total Active Subscriptions"
+                    dataKey={(entry) => entry.newSubs - entry.cancellations}
+                    // purple-800
+                    stroke="#6a1b9a"
+                    strokeWidth={2}
+                    strokeDasharray="2 2"
+                    dot={false}
+                  />
+                ) : null}
+              </>
+            )}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function ChartCard({
+  selectedProduct,
+  title,
+  color,
+  value,
+}: {
+  selectedProduct: DataRow | null;
+  title: string;
+  color: string;
+  value: any;
+}) {
+  if (!selectedProduct) return null;
+
+  return (
+    <div className="flex flex-row my-4 justify-center border border-white border-r-gray-200 last:border-r-white">
+      <div className="flex flex-col items-center px-8">
+        {/* TODO: It'd be cool if we could have these values tick up from 0 */}
+        <p className="font-medium">{title}</p>
+        <strong className={`text-3xl text-${color}`}>{value.toLocaleString()}</strong>
+      </div>
+    </div>
+  );
+}
+
+function ChartBlock({ selectedProduct }: { selectedProduct: DataRow | null }) {
+  if (!selectedProduct) return null;
+
+  return (
+    <div key={selectedProduct.id} className="flex flex-col p-4 pt-0 rounded-xl">
+      <Card>
+        <div className="w-full flex flex-row justify-between mb-2">
+          <h3 className="self-center font-bold text-lg">{selectedProduct.productName}</h3>
+        </div>
+
+        <div className="flex self-center border border-gray-200 rounded-xl">
+          <ChartCard
+            selectedProduct={selectedProduct}
+            title={"New Subscriptions"}
+            value={selectedProduct.subscriptionMetrics.reduce((a: any, v: { newSubs: any }) => (a = a + v.newSubs), 0)}
+            color="teal-500"
+          />
+          <ChartCard
+            selectedProduct={selectedProduct}
+            title={"Cancellations"}
+            value={selectedProduct.subscriptionMetrics.reduce(
+              (a: any, v: { cancellations: any }) => (a = a + v.cancellations),
+              0
+            )}
+            color="red-800"
+          />
+          <ChartCard
+            selectedProduct={selectedProduct}
+            title={"Total Active Subscriptions"}
+            value={selectedProduct.subscriptionMetrics.reduce((a, v) => (a = a + v.newSubs - v.cancellations), 0)}
+            color="purple-800"
+          />
+        </div>
+
+        <ChartItem selectedProduct={selectedProduct} />
+      </Card>
+    </div>
+  );
+}
+
+function randomValueBetween(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
 export default function SwrAnalyticsExample() {
   const { data, error, isLoading, mutate } = useSWR<DataRow[]>("/api/items");
 
-  const handleSubmit = async (
-    values: CreateDataRow,
-    actions: FormikHelpers<CreateDataRow>
-  ) => {
+  const handleSubmit = async (values: CreateDataRow, actions: FormikHelpers<CreateDataRow>) => {
     try {
-      console.log(values);
       const response = await fetch(`/api/items`, {
         method: "POST",
         body: JSON.stringify(values),
@@ -116,7 +335,13 @@ export default function SwrAnalyticsExample() {
       actions.resetForm({
         values: {
           productName: "",
-          subscriptionMetrics: [],
+          subscriptionMetrics: [
+            {
+              monthYear: "",
+              newSubs: 0,
+              cancellations: 0,
+            },
+          ],
         },
       });
     } catch (error) {
@@ -137,22 +362,9 @@ export default function SwrAnalyticsExample() {
     }
   }, [data]);
 
-  const [isMetricsViewOpen, setIsMetricsViewOpen] = useState(false);
-  const toggleMetricsView = () => {
-    isMetricsViewOpen
-      ? setIsMetricsViewOpen(false)
-      : setIsMetricsViewOpen(true);
-  };
-
-  const [showBarChart, setShowBarChart] = useState(false);
-  const toggleBarChart = () => {
-    showBarChart ? setShowBarChart(false) : setShowBarChart(true);
-  };
-
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p>Error getting data</p>;
 
-  //TODO: Fix explicit any below
   const FlowbiteInput = ({ field, form, ...props }: any) => {
     return <TextInput {...field} {...props} />;
   };
@@ -162,9 +374,7 @@ export default function SwrAnalyticsExample() {
       <Card className="p-4 pt-0 w-full rounded-xl">
         {/* Form Items */}
         <div>
-          <h2 className="self-start font-bold text-xl mb-4">
-            Create a new Product
-          </h2>
+          <h2 className="self-start font-bold text-xl mb-4">Create a new Product</h2>
           <Formik
             initialValues={
               {
@@ -182,22 +392,18 @@ export default function SwrAnalyticsExample() {
             validationSchema={Yup.object().shape({
               productName: Yup.string()
                 .min(2, "A Product Name must be 2 characters or more.")
-                .required(
-                  "A Product Name is required for both Quick Products and Detailed Products."
-                ),
+                .required("A Product Name is required for both Quick Products and Detailed Products."),
               subscriptionMetrics: Yup.array().of(
                 Yup.object().shape({
                   monthYear: Yup.string()
                     .matches(
                       /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4}$/,
-                      "Must contain a three character month, separated by a single space, followed by a four character year, with no following spaces (I.E. (Without quotes) 'Jan 2024')."
+                      "Must follow the following format (Without quotes) - 'Jan 2024'."
                     )
                     .required("A Month & Year is required."),
+                  // HMM: This schema allows users to enter in values like `01` and `007` incorrectly for newSubs and cancellations, but DOES concat those values, so `007` becomes `7`
                   newSubs: Yup.number()
-                    .min(
-                      0,
-                      "The number of New Subscriptions must be 0 or greater"
-                    )
+                    .min(0, "The number of New Subscriptions must be 0 or greater")
                     .required("The number of New Subscriptions is required."),
                   cancellations: Yup.number()
                     .min(0, "The number of Cancellations must be 0 or greater")
@@ -206,20 +412,49 @@ export default function SwrAnalyticsExample() {
               ),
             })}
           >
-            {({ isSubmitting, errors, touched, values, setFieldValue }) => {
-              const handleResetProductName = () => {
-                setFieldValue("productName", "");
-              };
+            {({ isSubmitting, errors, touched, values, setFieldValue, handleSubmit }) => {
+              // NOTE: For Quick Submission we generate a random number between 3 & 12 to seed the number of months generated; we then loop over according to the number of months, and generate monthYear, newSubs and cancellations values to be associated with it - We then add a modifier to the two numeric values to ensure one will always be larger than the other, and to ensure they are always incrementing
+              const handleQuickSubmission = () => {
+                const randomSeed = randomValueBetween(11, 12);
+                const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-              const handleResetMetricsFields = (index: any) => {
-                setFieldValue(`subscriptionMetrics.${index}.monthYear`, "");
-                setFieldValue(`subscriptionMetrics.${index}.newSubs`, "");
-                setFieldValue(`subscriptionMetrics.${index}.cancellations`, "");
+                const newSubsModifier = 50;
+                const cancellationsModifier = 25;
+
+                const newSubscriptionMetrics = [];
+
+                let prevNewSubs = 0;
+                let prevCancellations = 0;
+
+                for (let i = 0; i < randomSeed; i++) {
+                  const date = new Date(2024, i, 1);
+                  const monthYear = `${months[date.getMonth()]} ${date.getFullYear()}`;
+                  const newSubs = Math.max(prevNewSubs, randomValueBetween(prevNewSubs, prevNewSubs + newSubsModifier));
+                  const cancellations = Math.min(
+                    newSubs,
+                    Math.max(
+                      prevCancellations,
+                      randomValueBetween(prevCancellations, prevCancellations + cancellationsModifier)
+                    )
+                  );
+
+                  newSubscriptionMetrics.push({
+                    monthYear,
+                    newSubs,
+                    cancellations,
+                  });
+
+                  prevNewSubs = newSubs;
+                  prevCancellations = cancellations;
+                }
+
+                setFieldValue("subscriptionMetrics", newSubscriptionMetrics);
+                handleSubmit();
               };
 
               return (
                 <Form>
-                  <div className="flex w-fit bg-gray-100 p-4 rounded-xl mb-6">
+                  <div className="flex w-full bg-gray-100 p-4 rounded-xl mb-6">
                     <div>
                       <Card className="h-fit">
                         <Label htmlFor="name">
@@ -233,30 +468,12 @@ export default function SwrAnalyticsExample() {
                           className="w-full"
                         />
                         <Alert className="w-full relative" color="blue">
-                          Creating a Product with no Metrics will result in the
-                          default values of:
-                          <ul className="mt-2 ml-4 list-disc">
-                            <li>Target Month & Year: Jan 2024</li>
-                            <li>New Subscriptions: 0</li>
-                            <li>Cancellations: 0</li>
-                          </ul>
+                          <p>Creating a Quick Product with no Metrics will result in a random set of values.</p>
+                          <p className="mt-2">These values can range between 3 to 12 months' worth of data.</p>
                         </Alert>
                         {touched.productName && errors.productName ? (
-                          <Alert
-                            color="failure"
-                            icon={TbCircleXFilled}
-                            className="w-full"
-                          >
+                          <Alert color="failure" icon={TbCircleXFilled} className="w-full">
                             <ErrorMessage name="productName" />
-                          </Alert>
-                        ) : null}
-                        {touched.productName && !errors.productName ? (
-                          <Alert
-                            color="success"
-                            icon={TbThumbUp}
-                            className="w-full"
-                          >
-                            That Product Name looks great!
                           </Alert>
                         ) : null}
                       </Card>
@@ -267,7 +484,9 @@ export default function SwrAnalyticsExample() {
                             className="flex"
                             disabled={isSubmitting}
                             color="light"
-                            onClick={handleResetProductName}
+                            onClick={() => {
+                              setFieldValue("productName", "");
+                            }}
                           >
                             Reset Product Name Field
                             <TbRefresh size={20} className="ml-2" />
@@ -275,7 +494,8 @@ export default function SwrAnalyticsExample() {
                           <Button
                             type="submit"
                             className="flex"
-                            disabled={isSubmitting || errors.productName}
+                            disabled={isSubmitting || errors.productName ? true : false}
+                            onClick={handleQuickSubmission}
                             color="blue"
                           >
                             Create Quick Product
@@ -295,256 +515,121 @@ export default function SwrAnalyticsExample() {
                                 <p>Delete Row</p>
                                 <p className="ml-4">Add Row</p>
                               </div>
-                              {/* //BUG: Deleting the only metric gives a bugged view */}
-                              {values.subscriptionMetrics &&
-                              values.subscriptionMetrics.length > 0 &&
-                              isMetricsViewOpen ? (
-                                values.subscriptionMetrics.map(
-                                  (subscriptionMetric, index) => {
-                                    return (
-                                      <div className="first:mt-0 mt-4 mb-6">
-                                        <div
-                                          key={index}
-                                          className="flex flex-row items-start mb-6"
-                                        >
-                                          <div>
-                                            <Label
-                                              htmlFor={`subscriptionMetrics.${index}.monthYear`}
-                                            >
-                                              Target Month & Year
-                                              <span className="text-red-500 ml-1">
-                                                *
-                                              </span>
-                                            </Label>
-                                            <Field
-                                              component={FlowbiteInput}
-                                              name={`subscriptionMetrics.${index}.monthYear`}
-                                              className="mb-4 w-60"
-                                            />
-                                            {getIn(
-                                              touched,
-                                              `subscriptionMetrics.${index}.monthYear`
-                                            ) &&
-                                            getIn(
-                                              errors,
-                                              `subscriptionMetrics.${index}.monthYear`
-                                            ) ? (
-                                              <Alert
-                                                color="failure"
-                                                icon={TbCircleXFilled}
-                                                className="w-60"
-                                              >
-                                                <ErrorMessage
-                                                  name={`subscriptionMetrics.${index}.monthYear`}
-                                                />
-                                              </Alert>
-                                            ) : null}
-                                            {getIn(
-                                              touched,
-                                              `subscriptionMetrics.${index}.monthYear`
-                                            ) &&
-                                            !getIn(
-                                              errors,
-                                              `subscriptionMetrics.${index}.monthYear`
-                                            ) ? (
-                                              <Alert
-                                                color="success"
-                                                icon={TbThumbUp}
-                                                className="w-60"
-                                              >
-                                                That Month & Year looks great!
-                                              </Alert>
-                                            ) : null}
-                                          </div>
+                              {values.subscriptionMetrics.map((subscriptionMetric, index) => {
+                                return (
+                                  <div className="first:mt-0 mt-4 mb-6">
+                                    <div key={index} className="flex flex-row items-start mb-6">
+                                      <div>
+                                        <Label htmlFor={`subscriptionMetrics.${index}.monthYear`}>
+                                          Target Month & Year
+                                          <span className="text-red-500 ml-1">*</span>
+                                        </Label>
+                                        <Field
+                                          component={FlowbiteInput}
+                                          name={`subscriptionMetrics.${index}.monthYear`}
+                                          className="mb-4 w-60"
+                                        />
+                                        {/* TODO: Tidy up validation for Metric View */}
 
-                                          <div className="mx-4">
-                                            <Label
-                                              htmlFor={`subscriptionMetrics.${index}.newSubs`}
-                                            >
-                                              New Subscriptions
-                                              <span className="text-red-500 ml-1">
-                                                *
-                                              </span>
-                                            </Label>
-                                            <Field
-                                              component={FlowbiteInput}
-                                              name={`subscriptionMetrics.${index}.newSubs`}
-                                              type="number"
-                                              min={0}
-                                              className="mb-4 w-60"
-                                            />
-
-                                            {getIn(
-                                              touched,
-                                              `subscriptionMetrics.${index}.newSubs`
-                                            ) &&
-                                            getIn(
-                                              errors,
-                                              `subscriptionMetrics.${index}.newSubs`
-                                            ) ? (
-                                              <Alert
-                                                color="failure"
-                                                icon={TbCircleXFilled}
-                                                className="w-60"
-                                              >
-                                                <ErrorMessage
-                                                  name={`subscriptionMetrics.${index}.newSubs`}
-                                                />
-                                              </Alert>
-                                            ) : null}
-                                            {getIn(
-                                              touched,
-                                              `subscriptionMetrics.${index}.newSubs`
-                                            ) &&
-                                            !getIn(
-                                              errors,
-                                              `subscriptionMetrics.${index}.newSubs`
-                                            ) ? (
-                                              <Alert
-                                                color="success"
-                                                icon={TbThumbUp}
-                                                className="w-60"
-                                              >
-                                                Valid number of New
-                                                Subscriptions!
-                                              </Alert>
-                                            ) : null}
-                                          </div>
-
-                                          <div>
-                                            <Label
-                                              htmlFor={`subscriptionMetrics.${index}.cancellations`}
-                                            >
-                                              Cancellations
-                                              <span className="text-red-500 ml-1">
-                                                *
-                                              </span>
-                                            </Label>
-                                            <Field
-                                              component={FlowbiteInput}
-                                              name={`subscriptionMetrics.${index}.cancellations`}
-                                              type="number"
-                                              min={0}
-                                              className="mb-4 w-60"
-                                            />
-
-                                            {getIn(
-                                              touched,
-                                              `subscriptionMetrics.${index}.cancellations`
-                                            ) &&
-                                            getIn(
-                                              errors,
-                                              `subscriptionMetrics.${index}.cancellations`
-                                            ) ? (
-                                              <Alert
-                                                color="failure"
-                                                icon={TbCircleXFilled}
-                                                className="w-60"
-                                              >
-                                                <ErrorMessage
-                                                  name={`subscriptionMetrics.${index}.cancellations`}
-                                                />
-                                              </Alert>
-                                            ) : null}
-                                            {getIn(
-                                              touched,
-                                              `subscriptionMetrics.${index}.cancellations`
-                                            ) &&
-                                            !getIn(
-                                              errors,
-                                              `subscriptionMetrics.${index}.cancellations`
-                                            ) ? (
-                                              <Alert
-                                                color="success"
-                                                icon={TbThumbUp}
-                                                className="w-60"
-                                              >
-                                                Valid number of Cancellations!
-                                              </Alert>
-                                            ) : null}
-                                          </div>
-                                          <div className="flex mt-6 mb-4">
-                                            <Button
-                                              type="button"
-                                              onClick={() =>
-                                                arrayHelpers.remove(index)
-                                              }
-                                              className="mx-4"
-                                              color="dark"
-                                              disabled={
-                                                values.subscriptionMetrics
-                                                  .length === 1
-                                              }
-                                            >
-                                              <TbMinus size={20} />
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              onClick={() =>
-                                                arrayHelpers.insert(index, "")
-                                              }
-                                              color="dark"
-                                            >
-                                              <TbPlus size={20} />
-                                            </Button>
-                                          </div>
-                                        </div>
-                                        <hr />
+                                        {getIn(touched, `subscriptionMetrics.${index}.monthYear`) &&
+                                        getIn(errors, `subscriptionMetrics.${index}.monthYear`) ? (
+                                          <Alert color="failure" icon={TbCircleXFilled} className="w-60">
+                                            <ErrorMessage name={`subscriptionMetrics.${index}.monthYear`} />
+                                          </Alert>
+                                        ) : null}
                                       </div>
-                                    );
-                                  }
-                                )
-                              ) : (
-                                <div>
+
+                                      <div className="mx-4">
+                                        <Label htmlFor={`subscriptionMetrics.${index}.newSubs`}>
+                                          New Subscriptions
+                                          <span className="text-red-500 ml-1">*</span>
+                                        </Label>
+                                        <Field
+                                          component={FlowbiteInput}
+                                          name={`subscriptionMetrics.${index}.newSubs`}
+                                          type="number"
+                                          min={0}
+                                          className="mb-4 w-60"
+                                        />
+                                        {getIn(touched, `subscriptionMetrics.${index}.newSubs`) &&
+                                        getIn(errors, `subscriptionMetrics.${index}.newSubs`) ? (
+                                          <Alert color="failure" icon={TbCircleXFilled} className="w-60">
+                                            <ErrorMessage name={`subscriptionMetrics.${index}.newSubs`} />
+                                          </Alert>
+                                        ) : null}
+                                      </div>
+
+                                      <div>
+                                        <Label htmlFor={`subscriptionMetrics.${index}.cancellations`}>
+                                          Cancellations
+                                          <span className="text-red-500 ml-1">*</span>
+                                        </Label>
+                                        <Field
+                                          component={FlowbiteInput}
+                                          name={`subscriptionMetrics.${index}.cancellations`}
+                                          type="number"
+                                          min={0}
+                                          className="mb-4 w-60"
+                                        />
+                                        {getIn(touched, `subscriptionMetrics.${index}.cancellations`) &&
+                                        getIn(errors, `subscriptionMetrics.${index}.cancellations`) ? (
+                                          <Alert color="failure" icon={TbCircleXFilled} className="w-60">
+                                            <ErrorMessage name={`subscriptionMetrics.${index}.cancellations`} />
+                                          </Alert>
+                                        ) : null}
+                                      </div>
+                                      <div className="flex mt-6 mb-4">
+                                        <Button
+                                          type="button"
+                                          onClick={() => arrayHelpers.remove(index)}
+                                          className="mx-4"
+                                          color="dark"
+                                          disabled={values.subscriptionMetrics.length === 1}
+                                        >
+                                          <TbMinus size={20} />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          onClick={() => arrayHelpers.insert(index, "")}
+                                          color="dark"
+                                        >
+                                          <TbPlus size={20} />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <div className="flex flex-row items-center justify-between w-full">
+                                <div className="flex flex-row">
                                   <Button
+                                    type="submit"
                                     color="blue"
-                                    type="button"
                                     className="w-fit"
+                                    disabled={isSubmitting || Object.keys(errors).length > 0}
+                                  >
+                                    Create Detailed Product
+                                    <TbSend size={20} className="ml-2" />
+                                  </Button>
+                                  <Button
+                                    type="submit"
+                                    color="light"
+                                    className="w-fit ml-4"
                                     onClick={() => {
-                                      arrayHelpers.push(""),
-                                        toggleMetricsView();
+                                      setFieldValue("subscriptionMetrics", [
+                                        {
+                                          monthYear: "Jan 2024",
+                                          newSubs: 0,
+                                          cancellations: 0,
+                                        },
+                                      ]);
                                     }}
                                   >
-                                    Add Metrics to create a Detailed Product
-                                    <TbPlus size={20} className="ml-2" />
+                                    Reset Metric Fields
+                                    <TbRefresh size={20} className="ml-2" />
                                   </Button>
                                 </div>
-                              )}
-                              {isMetricsViewOpen ? (
-                                <div className="flex flex-row items-center justify-between w-full">
-                                  <div className="flex flex-row">
-                                    <Button
-                                      type="submit"
-                                      color="blue"
-                                      className="w-fit"
-                                      disabled={
-                                        isSubmitting ||
-                                        Object.keys(errors).length > 0
-                                      }
-                                    >
-                                      Create Detailed Product
-                                      <TbSend size={20} className="ml-2" />
-                                    </Button>
-                                    <Button
-                                      type="submit"
-                                      color="light"
-                                      className="w-fit ml-4"
-                                      onClick={handleResetMetricsFields}
-                                    >
-                                      Reset Metric Fields
-                                      <TbRefresh size={20} className="ml-2" />
-                                    </Button>
-                                  </div>
-                                  <Button
-                                    color="light"
-                                    onClick={toggleMetricsView}
-                                    className="w-fit"
-                                  >
-                                    Exit Metrics Panel
-                                    <TbX size={20} className="ml-2" />
-                                  </Button>
-                                </div>
-                              ) : null}
+                              </div>
                             </div>
                           )}
                         />
@@ -555,160 +640,27 @@ export default function SwrAnalyticsExample() {
               );
             }}
           </Formik>
-          <hr />
         </div>
 
         {/* Analytics Items */}
         <div>
-          <h2 className="self-start font-bold text-xl mt-2">
-            Select a Product to view a Dashboard
-          </h2>
-          {!data || data.length == 0 ? (
-            <Alert color="failure" icon={TbChartBarOff} className="w-fit mt-4">
+          <h2 className="self-start font-bold text-xl mt-2">Select a Product to view a Dashboard</h2>
+          {!data || data.length === 0 ? (
+            <Alert color="failure" icon={TbCircleXFilled} className="w-fit mt-4">
               No Product Data; please create a new Product.
             </Alert>
           ) : (
-            <div className="flex flex-row flex-wrap mt-4 bg-gray-100 px-4 py-2 rounded-xl w-fit">
-              {data?.sort().map((data) => (
-                <AnalyticsItem
-                  data={data}
-                  setSelectedProduct={setSelectedProduct}
-                />
-              ))}
+            <div className="bg-gray-100 rounded-xl">
+              <div className="flex flex-row flex-wrap mt-4 py-2 w-full">
+                {data?.sort().map((data) => (
+                  <AnalyticsItem data={data} setSelectedProduct={setSelectedProduct} />
+                ))}
+              </div>
+              <div className="w-full h-full">
+                {selectedProduct ? <ChartBlock selectedProduct={selectedProduct} /> : null}
+              </div>
             </div>
           )}
-        </div>
-
-        {/* Chart Items */}
-        <div className="w-full h-full">
-          {selectedProduct && data ? (
-            <div
-              key={selectedProduct.id}
-              className="flex flex-col bg-gray-100 p-4 rounded-xl mt-4"
-            >
-              <Card>
-                <div className="w-full flex flex-row justify-between mb-2">
-                  <h3 className="self-center font-bold text-lg">
-                    {selectedProduct.productName}
-                  </h3>
-                  <Button onClick={toggleBarChart} color="light">
-                    {showBarChart ? "Hide" : "Show"} Bar Chart
-                    {showBarChart ? (
-                      <TbChartBarOff size={20} className="ml-2" />
-                    ) : (
-                      <TbChartBar size={20} className="ml-2" />
-                    )}
-                  </Button>
-                </div>
-                <hr />
-
-                {/* //TODO: Parse this into a separate file or component */}
-                <div className="flex flex-row my-4 justify-center">
-                  <Card className="mr-4">
-                    <div className="flex flex-col items-center">
-                      {/* //TODO: It'd be cool if we could have these values tick up from 0 */}
-                      <strong>Total New Subscriptions</strong>
-                      <p>
-                        {selectedProduct.subscriptionMetrics.reduce(
-                          (a, v) => (a = a + v.newSubs),
-                          0
-                        )}
-                      </p>
-                    </div>
-                  </Card>
-                  <Card className="mr-4">
-                    <div className="flex flex-col items-center">
-                      <strong>Total Cancellations</strong>
-                      <p>
-                        {selectedProduct.subscriptionMetrics.reduce(
-                          (a, v) => (a = a + v.cancellations),
-                          0
-                        )}
-                      </p>
-                    </div>
-                  </Card>
-                  <Card>
-                    <div className="flex flex-col items-center">
-                      <strong>Total Active Users</strong>
-                      <p>
-                        {" "}
-                        {selectedProduct.subscriptionMetrics.reduce(
-                          (a, v) => (a = a + v.newSubs - v.cancellations),
-                          0
-                        )}
-                      </p>
-                    </div>
-                  </Card>
-                </div>
-                <hr />
-                {/* //TODO: Parse this into a separate file or component */}
-
-                <div className="flex flex-row justify-center w-full mt-2">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart
-                      barCategoryGap={10}
-                      barGap={3}
-                      data={selectedProduct.subscriptionMetrics}
-                      margin={{
-                        top: 20,
-                        right: 80,
-                        left: 40,
-                        bottom: 5,
-                      }}
-                    >
-                      <CartesianGrid strokeDasharray="1 2" />
-                      <XAxis dataKey="monthYear" />
-                      <YAxis />
-                      <Tooltip
-                        cursor={{
-                          fill: "#eeeeee",
-                          stroke: "lightgray",
-                          opacity: "0.5",
-                        }}
-                      />
-                      <Legend
-                        iconType="circle"
-                        formatter={(value) => (
-                          <span className="text-gray-500 first:mr-4">
-                            {value}
-                          </span>
-                        )}
-                      />
-                      {showBarChart ? (
-                        <>
-                          <Bar
-                            dataKey="newSubs"
-                            name="New Subscriptions"
-                            fill="#2962ff"
-                          />
-                          <Bar
-                            dataKey="cancellations"
-                            name="Cancellations"
-                            fill="#d50000"
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <Line
-                            type="monotone"
-                            name="New Subscriptions"
-                            dataKey="newSubs"
-                            stroke="#2962ff"
-                          />
-                          <Line
-                            type="monotone"
-                            name="Cancellations"
-                            dataKey="cancellations"
-                            stroke="#d50000"
-                          />
-                        </>
-                      )}
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card>
-            </div>
-          ) : null}
         </div>
       </Card>
     </div>
