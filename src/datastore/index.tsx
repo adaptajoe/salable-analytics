@@ -184,7 +184,7 @@ export class DataApi {
           cancellations: 986,
         },
         {
-          monthYear: "Sept 2022",
+          monthYear: "Sep 2022",
           newSubs: 1243,
           cancellations: 1122,
         },
@@ -244,7 +244,7 @@ export class DataApi {
           cancellations: 412,
         },
         {
-          monthYear: "Sept 2023",
+          monthYear: "Sep 2023",
           newSubs: 1242,
           cancellations: 1200,
         },

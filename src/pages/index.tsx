@@ -20,18 +20,7 @@ import {
   TbBrush,
   TbBrushOff,
 } from "react-icons/tb";
-import {
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Legend,
-  Bar,
-  Tooltip,
-  ResponsiveContainer,
-  Line,
-  ComposedChart,
-  Brush,
-} from "recharts";
+import { CartesianGrid, XAxis, YAxis, Bar, Tooltip, ResponsiveContainer, Line, ComposedChart, Brush } from "recharts";
 import useSWR from "swr";
 import * as Yup from "yup";
 
@@ -46,7 +35,8 @@ function AnalyticsItem({
 }) {
   const { mutate } = useSWR("/api/items");
 
-  // BUG: For some reason, deleting created products sometimes deletes multiple created products
+  // HMM: Below may be due to architecture and not be representative of final implementation given we pull the data from Stripe
+  // BUG: For some reason, deleting non-stubbed created products sometimes deletes multiple non-stubbed created products
   const handleDelete = async () => {
     await fetch(`/api/items/${data.id}`, {
       method: "DELETE",
@@ -95,32 +85,18 @@ function AnalyticsItem({
 function ChartItem({ selectedProduct }: { selectedProduct: DataRow | null }) {
   if (!selectedProduct) return null;
 
-  // HMM: Is there a way we can clean up these states?
   const [showBarChart, setShowBarChart] = useState(true);
-  const toggleBarChart = () => {
-    showBarChart ? setShowBarChart(false) : setShowBarChart(true);
-  };
-
   const [showTrendLine, setShowTrendLine] = useState(false);
-  const toggleTrendLine = () => {
-    showTrendLine ? setShowTrendLine(false) : setShowTrendLine(true);
-  };
-
   const [showTrendExclusively, setShowTrendExclusively] = useState(false);
-  const toggleTrendExclusively = () => {
-    showTrendExclusively ? setShowTrendExclusively(false) : setShowTrendExclusively(true);
-  };
-
   const [showTimelineBrush, setShowTimelineBrush] = useState(false);
-  const toggleTimelineBrush = () => {
-    showTimelineBrush ? setShowTimelineBrush(false) : setShowTimelineBrush(true);
-  };
 
   return (
     <div className="w-full flex mt-4">
       <div className="flex flex-col">
         <Button
-          onClick={toggleBarChart}
+          onClick={() => {
+            setShowBarChart((prevState) => !prevState);
+          }}
           color="light"
           className="h-fit w-[175px]"
           disabled={showTrendExclusively ? true : false}
@@ -129,7 +105,9 @@ function ChartItem({ selectedProduct }: { selectedProduct: DataRow | null }) {
           {showBarChart ? <TbChartDots size={20} className="ml-2" /> : <TbChartBar size={20} className="ml-2" />}
         </Button>
         <Button
-          onClick={toggleTrendLine}
+          onClick={() => {
+            setShowTrendLine((prevState) => !prevState);
+          }}
           color="light"
           className="h-fit w-[175px] mt-4"
           disabled={showTrendExclusively ? true : false}
@@ -142,7 +120,9 @@ function ChartItem({ selectedProduct }: { selectedProduct: DataRow | null }) {
           )}
         </Button>
         <Button
-          onClick={toggleTrendExclusively}
+          onClick={() => {
+            setShowTrendExclusively((prevState) => !prevState);
+          }}
           color="light"
           className="h-fit w-[175px] mt-4"
           disabled={!showTrendLine ? true : false}
@@ -154,7 +134,13 @@ function ChartItem({ selectedProduct }: { selectedProduct: DataRow | null }) {
             <TbArtboardOff size={20} className="ml-2" />
           )}
         </Button>
-        <Button onClick={toggleTimelineBrush} color="light" className="h-fit w-[175px] mt-4">
+        <Button
+          onClick={() => {
+            setShowTimelineBrush((prevState) => !prevState);
+          }}
+          color="light"
+          className="h-fit w-[175px] mt-4"
+        >
           {showTimelineBrush ? "Hide" : "Show"} Timeline
           {showTimelineBrush ? <TbBrushOff size={20} className="ml-2" /> : <TbBrush size={20} className="ml-2" />}
         </Button>
@@ -349,7 +335,13 @@ export default function SwrAnalyticsExample() {
       actions.resetForm({
         values: {
           productName: "",
-          subscriptionMetrics: [],
+          subscriptionMetrics: [
+            {
+              monthYear: "",
+              newSubs: 0,
+              cancellations: 0,
+            },
+          ],
         },
       });
     } catch (error) {
@@ -369,11 +361,6 @@ export default function SwrAnalyticsExample() {
       setSelectedProduct(null);
     }
   }, [data]);
-
-  const [isMetricsViewOpen, setIsMetricsViewOpen] = useState(false);
-  const toggleMetricsView = () => {
-    isMetricsViewOpen ? setIsMetricsViewOpen(false) : setIsMetricsViewOpen(true);
-  };
 
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p>Error getting data</p>;
@@ -410,8 +397,8 @@ export default function SwrAnalyticsExample() {
                 Yup.object().shape({
                   monthYear: Yup.string()
                     .matches(
-                      /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sept|Oct|Nov|Dec) \d{4}$/,
-                      "Must follow the following format (Without quotes) - 'Jan 2024'. For September, use 'Sept 2024'."
+                      /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4}$/,
+                      "Must follow the following format (Without quotes) - 'Jan 2024'."
                     )
                     .required("A Month & Year is required."),
                   // HMM: This schema allows users to enter in values like `01` and `007` incorrectly for newSubs and cancellations, but DOES concat those values, so `007` becomes `7`
@@ -426,24 +413,14 @@ export default function SwrAnalyticsExample() {
             })}
           >
             {({ isSubmitting, errors, touched, values, setFieldValue, handleSubmit }) => {
-              const handleResetProductName = () => {
-                setFieldValue("productName", "");
-              };
-
-              // BUG: Reset on Metrics doesn't seem to work correctly
-              // HMM: We should also reset the size of the array here too
-              const handleResetMetricsFields = (index: any) => {
-                setFieldValue(`subscriptionMetrics.${index}.monthYear`, "Jan 2024");
-                setFieldValue(`subscriptionMetrics.${index}.newSubs`, "0");
-                setFieldValue(`subscriptionMetrics.${index}.cancellations`, "0");
-              };
-
               // NOTE: For Quick Submission we generate a random number between 3 & 12 to seed the number of months generated; we then loop over according to the number of months, and generate monthYear, newSubs and cancellations values to be associated with it - We then add a modifier to the two numeric values to ensure one will always be larger than the other, and to ensure they are always incrementing
               const handleQuickSubmission = () => {
-                const randomSeed = randomValueBetween(3, 12);
+                const randomSeed = randomValueBetween(11, 12);
+                const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
                 const newSubsModifier = 50;
                 const cancellationsModifier = 25;
+
                 const newSubscriptionMetrics = [];
 
                 let prevNewSubs = 0;
@@ -451,8 +428,7 @@ export default function SwrAnalyticsExample() {
 
                 for (let i = 0; i < randomSeed; i++) {
                   const date = new Date(2024, i, 1);
-                  // NOTE: date.toLocaleString has a fun issue where 'September' is abbreviated to 'Sept', whilst all other months are abbreviated to 3-character names
-                  const monthYear = date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+                  const monthYear = `${months[date.getMonth()]} ${date.getFullYear()}`;
                   const newSubs = Math.max(prevNewSubs, randomValueBetween(prevNewSubs, prevNewSubs + newSubsModifier));
                   const cancellations = Math.min(
                     newSubs,
@@ -475,9 +451,6 @@ export default function SwrAnalyticsExample() {
                 setFieldValue("subscriptionMetrics", newSubscriptionMetrics);
                 handleSubmit();
               };
-
-              const metricsViewCheck =
-                values.subscriptionMetrics && values.subscriptionMetrics.length > 0 && isMetricsViewOpen;
 
               return (
                 <Form>
@@ -511,7 +484,9 @@ export default function SwrAnalyticsExample() {
                             className="flex"
                             disabled={isSubmitting}
                             color="light"
-                            onClick={handleResetProductName}
+                            onClick={() => {
+                              setFieldValue("productName", "");
+                            }}
                           >
                             Reset Product Name Field
                             <TbRefresh size={20} className="ml-2" />
@@ -540,138 +515,121 @@ export default function SwrAnalyticsExample() {
                                 <p>Delete Row</p>
                                 <p className="ml-4">Add Row</p>
                               </div>
-                              {metricsViewCheck ? (
-                                values.subscriptionMetrics.map((subscriptionMetric, index) => {
-                                  return (
-                                    <div className="first:mt-0 mt-4 mb-6">
-                                      <div key={index} className="flex flex-row items-start mb-6">
-                                        <div>
-                                          <Label htmlFor={`subscriptionMetrics.${index}.monthYear`}>
-                                            Target Month & Year
-                                            <span className="text-red-500 ml-1">*</span>
-                                          </Label>
-                                          <Field
-                                            component={FlowbiteInput}
-                                            name={`subscriptionMetrics.${index}.monthYear`}
-                                            className="mb-4 w-60"
-                                          />
-                                          {/* TODO: Tidy up validation for Metric View */}
+                              {values.subscriptionMetrics.map((subscriptionMetric, index) => {
+                                return (
+                                  <div className="first:mt-0 mt-4 mb-6">
+                                    <div key={index} className="flex flex-row items-start mb-6">
+                                      <div>
+                                        <Label htmlFor={`subscriptionMetrics.${index}.monthYear`}>
+                                          Target Month & Year
+                                          <span className="text-red-500 ml-1">*</span>
+                                        </Label>
+                                        <Field
+                                          component={FlowbiteInput}
+                                          name={`subscriptionMetrics.${index}.monthYear`}
+                                          className="mb-4 w-60"
+                                        />
+                                        {/* TODO: Tidy up validation for Metric View */}
 
-                                          {getIn(touched, `subscriptionMetrics.${index}.monthYear`) &&
-                                          getIn(errors, `subscriptionMetrics.${index}.monthYear`) ? (
-                                            <Alert color="failure" icon={TbCircleXFilled} className="w-60">
-                                              <ErrorMessage name={`subscriptionMetrics.${index}.monthYear`} />
-                                            </Alert>
-                                          ) : null}
-                                        </div>
+                                        {getIn(touched, `subscriptionMetrics.${index}.monthYear`) &&
+                                        getIn(errors, `subscriptionMetrics.${index}.monthYear`) ? (
+                                          <Alert color="failure" icon={TbCircleXFilled} className="w-60">
+                                            <ErrorMessage name={`subscriptionMetrics.${index}.monthYear`} />
+                                          </Alert>
+                                        ) : null}
+                                      </div>
 
-                                        <div className="mx-4">
-                                          <Label htmlFor={`subscriptionMetrics.${index}.newSubs`}>
-                                            New Subscriptions
-                                            <span className="text-red-500 ml-1">*</span>
-                                          </Label>
-                                          <Field
-                                            component={FlowbiteInput}
-                                            name={`subscriptionMetrics.${index}.newSubs`}
-                                            type="number"
-                                            min={0}
-                                            className="mb-4 w-60"
-                                          />
-                                          {getIn(touched, `subscriptionMetrics.${index}.newSubs`) &&
-                                          getIn(errors, `subscriptionMetrics.${index}.newSubs`) ? (
-                                            <Alert color="failure" icon={TbCircleXFilled} className="w-60">
-                                              <ErrorMessage name={`subscriptionMetrics.${index}.newSubs`} />
-                                            </Alert>
-                                          ) : null}
-                                        </div>
+                                      <div className="mx-4">
+                                        <Label htmlFor={`subscriptionMetrics.${index}.newSubs`}>
+                                          New Subscriptions
+                                          <span className="text-red-500 ml-1">*</span>
+                                        </Label>
+                                        <Field
+                                          component={FlowbiteInput}
+                                          name={`subscriptionMetrics.${index}.newSubs`}
+                                          type="number"
+                                          min={0}
+                                          className="mb-4 w-60"
+                                        />
+                                        {getIn(touched, `subscriptionMetrics.${index}.newSubs`) &&
+                                        getIn(errors, `subscriptionMetrics.${index}.newSubs`) ? (
+                                          <Alert color="failure" icon={TbCircleXFilled} className="w-60">
+                                            <ErrorMessage name={`subscriptionMetrics.${index}.newSubs`} />
+                                          </Alert>
+                                        ) : null}
+                                      </div>
 
-                                        <div>
-                                          <Label htmlFor={`subscriptionMetrics.${index}.cancellations`}>
-                                            Cancellations
-                                            <span className="text-red-500 ml-1">*</span>
-                                          </Label>
-                                          <Field
-                                            component={FlowbiteInput}
-                                            name={`subscriptionMetrics.${index}.cancellations`}
-                                            type="number"
-                                            min={0}
-                                            className="mb-4 w-60"
-                                          />
-                                          {getIn(touched, `subscriptionMetrics.${index}.cancellations`) &&
-                                          getIn(errors, `subscriptionMetrics.${index}.cancellations`) ? (
-                                            <Alert color="failure" icon={TbCircleXFilled} className="w-60">
-                                              <ErrorMessage name={`subscriptionMetrics.${index}.cancellations`} />
-                                            </Alert>
-                                          ) : null}
-                                        </div>
-                                        <div className="flex mt-6 mb-4">
-                                          <Button
-                                            type="button"
-                                            onClick={() => arrayHelpers.remove(index)}
-                                            className="mx-4"
-                                            color="dark"
-                                            disabled={values.subscriptionMetrics.length === 1}
-                                          >
-                                            <TbMinus size={20} />
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            onClick={() => arrayHelpers.insert(index, "")}
-                                            color="dark"
-                                          >
-                                            <TbPlus size={20} />
-                                          </Button>
-                                        </div>
+                                      <div>
+                                        <Label htmlFor={`subscriptionMetrics.${index}.cancellations`}>
+                                          Cancellations
+                                          <span className="text-red-500 ml-1">*</span>
+                                        </Label>
+                                        <Field
+                                          component={FlowbiteInput}
+                                          name={`subscriptionMetrics.${index}.cancellations`}
+                                          type="number"
+                                          min={0}
+                                          className="mb-4 w-60"
+                                        />
+                                        {getIn(touched, `subscriptionMetrics.${index}.cancellations`) &&
+                                        getIn(errors, `subscriptionMetrics.${index}.cancellations`) ? (
+                                          <Alert color="failure" icon={TbCircleXFilled} className="w-60">
+                                            <ErrorMessage name={`subscriptionMetrics.${index}.cancellations`} />
+                                          </Alert>
+                                        ) : null}
+                                      </div>
+                                      <div className="flex mt-6 mb-4">
+                                        <Button
+                                          type="button"
+                                          onClick={() => arrayHelpers.remove(index)}
+                                          className="mx-4"
+                                          color="dark"
+                                          disabled={values.subscriptionMetrics.length === 1}
+                                        >
+                                          <TbMinus size={20} />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          onClick={() => arrayHelpers.insert(index, "")}
+                                          color="dark"
+                                        >
+                                          <TbPlus size={20} />
+                                        </Button>
                                       </div>
                                     </div>
-                                  );
-                                })
-                              ) : (
-                                <div>
-                                  {/* BUG: For some reason, after creating a Detailed Product this button needs to be clicked twice to run again */}
+                                  </div>
+                                );
+                              })}
+                              <div className="flex flex-row items-center justify-between w-full">
+                                <div className="flex flex-row">
                                   <Button
+                                    type="submit"
                                     color="blue"
-                                    type="button"
                                     className="w-fit"
-                                    // NOTE: If number of rows within metrics view is 0, create a row, otherwise, just show the metrics view and create no new rows (As user will create them)
+                                    disabled={isSubmitting || Object.keys(errors).length > 0}
+                                  >
+                                    Create Detailed Product
+                                    <TbSend size={20} className="ml-2" />
+                                  </Button>
+                                  <Button
+                                    type="submit"
+                                    color="light"
+                                    className="w-fit ml-4"
                                     onClick={() => {
-                                      values.subscriptionMetrics.length == 0 ? arrayHelpers.push("") : null,
-                                        toggleMetricsView();
+                                      setFieldValue("subscriptionMetrics", [
+                                        {
+                                          monthYear: "Jan 2024",
+                                          newSubs: 0,
+                                          cancellations: 0,
+                                        },
+                                      ]);
                                     }}
                                   >
-                                    Add Metrics to create a Detailed Product
-                                    <TbPlus size={20} className="ml-2" />
+                                    Reset Metric Fields
+                                    <TbRefresh size={20} className="ml-2" />
                                   </Button>
                                 </div>
-                              )}
-                              {isMetricsViewOpen && values.subscriptionMetrics.length > 0 ? (
-                                <div className="flex flex-row items-center justify-between w-full">
-                                  <div className="flex flex-row">
-                                    <Button
-                                      type="submit"
-                                      color="blue"
-                                      className="w-fit"
-                                      disabled={isSubmitting || Object.keys(errors).length > 0}
-                                    >
-                                      Create Detailed Product
-                                      <TbSend size={20} className="ml-2" />
-                                    </Button>
-                                    <Button
-                                      type="submit"
-                                      color="light"
-                                      className="w-fit ml-4"
-                                      onClick={handleResetMetricsFields}
-                                    >
-                                      Reset Metric Fields
-                                      <TbRefresh size={20} className="ml-2" />
-                                    </Button>
-                                  </div>
-                                  <Button color="light" onClick={toggleMetricsView} className="w-fit">
-                                    Exit Metrics Panel
-                                    <TbX size={20} className="ml-2" />
-                                  </Button>
-                                </div>
-                              ) : null}
+                              </div>
                             </div>
                           )}
                         />
@@ -687,7 +645,7 @@ export default function SwrAnalyticsExample() {
         {/* Analytics Items */}
         <div>
           <h2 className="self-start font-bold text-xl mt-2">Select a Product to view a Dashboard</h2>
-          {!data || data.length == 0 ? (
+          {!data || data.length === 0 ? (
             <Alert color="failure" icon={TbCircleXFilled} className="w-fit mt-4">
               No Product Data; please create a new Product.
             </Alert>
